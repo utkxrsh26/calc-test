@@ -9,6 +9,7 @@ A simple, well-structured calculator implementation following SOLID principles.
 - Extensible architecture (easy to add new operations)
 - Comprehensive error handling
 - SOLID principles implementation
+- Type hints for better code clarity
 
 ## Architecture
 
@@ -23,10 +24,10 @@ A simple, well-structured calculator implementation following SOLID principles.
    - Uses Strategy pattern for extensibility
 
 3. **Liskov Substitution Principle (LSP)**
-   - All operation classes can be substituted via the Operation interface
+   - All operation classes can be substituted via the Operation abstract base class
 
 4. **Interface Segregation Principle (ISP)**
-   - Operation interface is focused and minimal
+   - Operation abstract base class is focused and minimal
 
 5. **Dependency Inversion Principle (DIP)**
    - Calculator depends on Operation abstraction, not concrete implementations
@@ -37,82 +38,104 @@ A simple, well-structured calculator implementation following SOLID principles.
 calc-test/
 ├── src/
 │   ├── operations/
-│   │   ├── Operation.js          # Abstract base class
-│   │   ├── AddOperation.js       # Addition operation
-│   │   ├── SubtractOperation.js # Subtraction operation
-│   │   ├── MultiplyOperation.js  # Multiplication operation
-│   │   ├── DivideOperation.js    # Division operation
-│   │   └── index.js              # Operations exports
-│   ├── Calculator.js             # Main calculator class
-│   └── index.js                  # Entry point
-├── package.json
+│   │   ├── __init__.py           # Operations exports
+│   │   ├── operation.py          # Abstract base class
+│   │   ├── add_operation.py      # Addition operation
+│   │   ├── subtract_operation.py # Subtraction operation
+│   │   ├── multiply_operation.py  # Multiplication operation
+│   │   └── divide_operation.py   # Division operation
+│   ├── __init__.py               # Package exports
+│   ├── calculator.py             # Main calculator class
+│   └── main.py                   # Entry point
+├── requirements.txt
+├── setup.py
 └── README.md
+```
+
+## Requirements
+
+- Python 3.7 or higher
+- No external dependencies
+
+## Installation
+
+```bash
+# Install the package (optional, for development)
+pip install -e .
 ```
 
 ## Usage
 
 ### Basic Usage
 
-```javascript
-import { Calculator } from './src/Calculator.js';
+```python
+from src.calculator import Calculator
 
-const calculator = new Calculator();
+calculator = Calculator()
 
-// Perform calculations
-const sum = calculator.calculate(10, 5, '+');      // 15
-const diff = calculator.calculate(10, 5, '-');     // 5
-const product = calculator.calculate(10, 5, '*');  // 50
-const quotient = calculator.calculate(10, 5, '/'); // 2
+# Perform calculations
+sum_result = calculator.calculate(10, 5, '+')      # 15
+diff_result = calculator.calculate(10, 5, '-')     # 5
+product_result = calculator.calculate(10, 5, '*')  # 50
+quotient_result = calculator.calculate(10, 5, '/')  # 2
 ```
 
 ### Adding Custom Operations
 
-```javascript
-import { Calculator } from './src/Calculator.js';
-import { Operation } from './src/operations/Operation.js';
+```python
+from src.calculator import Calculator
+from src.operations import Operation
 
-// Create a custom operation
-class PowerOperation extends Operation {
-  execute(a, b) {
-    return Math.pow(a, b);
-  }
-  
-  getSymbol() {
-    return '^';
-  }
-}
+# Create a custom operation
+class PowerOperation(Operation):
+    def execute(self, a: float, b: float) -> float:
+        return a ** b
+    
+    def get_symbol(self) -> str:
+        return '^'
 
-// Register it with the calculator
-const calculator = new Calculator();
-calculator.registerOperation('^', new PowerOperation());
+# Register it with the calculator
+calculator = Calculator()
+calculator.register_operation('^', PowerOperation())
 
-// Use it
-const result = calculator.calculate(2, 3, '^'); // 8
+# Use it
+result = calculator.calculate(2, 3, '^')  # 8
 ```
 
 ### Error Handling
 
-```javascript
-try {
-  calculator.calculate(10, 0, '/'); // Throws: Division by zero
-} catch (error) {
-  console.error(error.message);
-}
+```python
+try:
+    calculator.calculate(10, 0, '/')  # Raises ValueError: Division by zero
+except ValueError as error:
+    print(error)
 
-try {
-  calculator.calculate(10, 5, '%'); // Throws: Unsupported operation
-} catch (error) {
-  console.error(error.message);
-}
+try:
+    calculator.calculate(10, 5, '%')  # Raises ValueError: Unsupported operation
+except ValueError as error:
+    print(error)
 ```
 
 ## Running the Project
 
 ```bash
-npm start
+# Run the demo
+python -m src.main
+
+# Or directly
+python src/main.py
+```
+
+## Development
+
+```bash
+# Install in development mode
+pip install -e .
+
+# Run tests (if you add them)
+python -m pytest
 ```
 
 ## License
 
 MIT
-
