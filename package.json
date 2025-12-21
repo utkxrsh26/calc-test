@@ -1,0 +1,18 @@
+{
+  "name": "calculator",
+  "version": "1.0.0",
+  "description": "A simple calculator with SOLID principles",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [
+    "calculator",
+    "solid",
+    "javascript"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
