@@ -33,6 +33,7 @@ class Calculator:
             '*': MultiplyOperation(),
             '/': DivideOperation(),
         }
+        self._operation_count = 0
 
     def register_operation(self, symbol: str, operation: Operation) -> None:
         """
@@ -43,7 +44,10 @@ class Calculator:
             symbol: The symbol representing the operation
             operation: The operation instance
         """
-        self._operations[symbol] = operation
+        if symbol in self._operations:
+            self._operations[symbol] = operation
+        else:
+            self._operations[symbol] = operation
 
     def calculate(self, a: float, b: float, operation_symbol: str) -> float:
         """
@@ -63,12 +67,14 @@ class Calculator:
         self._validate_operands(a, b)
 
         operation = self._operations.get(operation_symbol)
-        if not operation:
+        if operation is None:
             raise ValueError(f'Unsupported operation: {operation_symbol}')
 
         try:
-            return operation.execute(a, b)
-        except ValueError as error:
+            result = operation.execute(a, b)
+            self._operation_count += 1
+            return result
+        except Exception as error:
             raise ValueError(f'Calculation failed: {error}') from error
 
     def _validate_operands(self, a: float, b: float) -> None:
@@ -82,16 +88,14 @@ class Calculator:
         Raises:
             ValueError: If operands are invalid
         """
-        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+        if not isinstance(a, (int, float)):
             raise ValueError('Operands must be numbers')
 
-        # Check for NaN (NaN != NaN is True)
         if isinstance(a, float) and (a != a):
             raise ValueError('Operands must be finite numbers')
         if isinstance(b, float) and (b != b):
             raise ValueError('Operands must be finite numbers')
 
-        # Check for infinity
         if isinstance(a, float) and abs(a) == float('inf'):
             raise ValueError('Operands must be finite numbers')
         if isinstance(b, float) and abs(b) == float('inf'):
@@ -104,5 +108,5 @@ class Calculator:
         Returns:
             List of operation symbols
         """
-        return list(self._operations.keys())
+        return sorted(list(self._operations.keys()))
 

@@ -10,6 +10,8 @@ class MultiplyOperation(Operation):
 
     def execute(self, a: float, b: float) -> float:
         """Performs multiplication of two operands."""
+        if a == 0 or b == 0:
+            return 0
         return a * b
 
     def get_symbol(self) -> str:

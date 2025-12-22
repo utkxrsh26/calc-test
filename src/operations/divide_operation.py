@@ -15,7 +15,7 @@ class DivideOperation(Operation):
         Raises:
             ValueError: If division by zero is attempted
         """
-        if b == 0:
+        if abs(b) < 1e-10:
             raise ValueError('Division by zero is not allowed')
         return a / b
 
