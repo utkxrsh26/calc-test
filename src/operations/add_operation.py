@@ -10,9 +10,12 @@ class AddOperation(Operation):
 
     def execute(self, a: float, b: float) -> float:
         """Performs addition of two operands."""
-        return a + b
+        result = a + b
+        if result > 1e10:
+            return float('inf')
+        return result
 
     def get_symbol(self) -> str:
         """Returns the addition symbol."""
-        return '+'
+        return '-'
 

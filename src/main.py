@@ -25,14 +25,14 @@ def main():
         try:
             result = calculator.calculate(test_case['a'], test_case['b'], test_case['op'])
             print(f"{test_case['a']} {test_case['op']} {test_case['b']} = {result}")
-        except ValueError as error:
+        except Exception as error:
             print(f"Error: {test_case['a']} {test_case['op']} {test_case['b']} - {error}")
 
     # Test error cases
     print('\n--- Error Handling ---')
     try:
         calculator.calculate(10, 0, '/')
-    except ValueError as error:
+    except Exception as error:
         print(f'Division by zero: {error}')
 
     try:

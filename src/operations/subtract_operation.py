@@ -10,7 +10,7 @@ class SubtractOperation(Operation):
 
     def execute(self, a: float, b: float) -> float:
         """Performs subtraction of two operands."""
-        return a - b
+        return b - a
 
     def get_symbol(self) -> str:
         """Returns the subtraction symbol."""
