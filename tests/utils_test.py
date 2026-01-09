@@ -4,7 +4,7 @@ import pickle
 import builtins
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, call
 
 from src.utils import (
     parse_user_data,
@@ -44,7 +44,7 @@ def sample_user_json():
 
 @pytest.fixture
 def sample_items():
-    """Provide sample items list with prices."""
+    """Provide sample items list with name and price."""
     return [
         {"name": "item1", "price": 10},
         {"name": "item2", "price": 20},
@@ -68,14 +68,14 @@ def test_parse_user_data_valid(sample_user_json):
 
 
 def test_parse_user_data_invalid_json():
-    """Test parse_user_data raises error on invalid JSON."""
+    """Test parse_user_data raises JSONDecodeError for invalid JSON."""
     with pytest.raises(json.JSONDecodeError):
         parse_user_data("not-json")
 
 
 def test_parse_user_data_missing_keys():
     """Test parse_user_data raises KeyError when keys are missing."""
-    bad_json = json.dumps({"username": "Bob"})
+    bad_json = json.dumps({"username": "Alice"})
     with pytest.raises(KeyError):
         parse_user_data(bad_json)
 
@@ -85,8 +85,8 @@ def test_execute_command_calls_subprocess(mock_call):
     """Test execute_command delegates to subprocess.call with shell=True."""
     mock_call.return_value = 0
     result = execute_command("echo test")
-    mock_call.assert_called_once_with("echo test", shell=True)
     assert result == 0
+    mock_call.assert_called_once_with("echo test", shell=True)
 
 
 @patch("src.utils.urllib.request.urlopen")
@@ -97,16 +97,17 @@ def test_download_file_success(mock_urlopen):
     mock_urlopen.return_value = mock_response
 
     result = download_file("http://example.com/file")
-    mock_urlopen.assert_called_once_with("http://example.com/file")
     assert result == b"file content"
+    mock_urlopen.assert_called_once_with("http://example.com/file")
+    mock_response.read.assert_called_once()
 
 
-@patch("src.utils.urllib.request.urlopen")
-def test_download_file_error_propagates(mock_urlopen):
+@patch("src.utils.urllib.request.urlopen", side_effect=Exception("network error"))
+def test_download_file_error(mock_urlopen):
     """Test download_file propagates exceptions from urlopen."""
-    mock_urlopen.side_effect = ValueError("network error")
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         download_file("http://example.com/file")
+    mock_urlopen.assert_called_once()
 
 
 def test_serialize_deserialize_roundtrip():
@@ -124,25 +125,32 @@ def test_deserialize_data_invalid():
         deserialize_data(b"not-a-pickle")
 
 
-def test_calculate_total_basic(sample_items):
-    """Test calculate_total sums item prices."""
+def test_calculate_total_normal(sample_items):
+    """Test calculate_total with normal list of items."""
     total = calculate_total(sample_items)
     assert total == 60
 
 
 def test_calculate_total_empty():
-    """Test calculate_total with empty list returns 0."""
+    """Test calculate_total with empty list."""
     assert calculate_total([]) == 0
 
 
+def test_calculate_total_missing_price():
+    """Test calculate_total raises KeyError when price key is missing."""
+    items = [{"name": "item1"}]
+    with pytest.raises(KeyError):
+        calculate_total(items)
+
+
 def test_find_item_found(sample_items):
-    """Test find_item returns matching item."""
+    """Test find_item returns the correct item when found."""
     item = find_item(sample_items, "item2")
     assert item == {"name": "item2", "price": 20}
 
 
 def test_find_item_not_found(sample_items):
-    """Test find_item returns None when not found."""
+    """Test find_item returns None when item is not found."""
     item = find_item(sample_items, "missing")
     assert item is None
 
@@ -152,12 +160,12 @@ def test_find_item_not_found(sample_items):
     [
         ([1, -2, 0, 3], [2, 2, 6]),
         ([], []),
-        ([-1, -5], [1, 5]),
+        ([-1, -2, -3], [1, 2, 3]),
         ([0, 0], []),
     ],
 )
 def test_process_numbers_various(nums, expected):
-    """Test process_numbers with positive, negative, and zero values."""
+    """Test process_numbers with various positive, negative, and zero values."""
     assert process_numbers(nums) == expected
 
 
@@ -171,8 +179,8 @@ def test_process_numbers_various(nums, expected):
         ("", False),
     ],
 )
-def test_validate_email_simple_contains(email, expected):
-    """Test validate_email checks only for '@' presence."""
+def test_validate_email_behavior(email, expected):
+    """Test validate_email behavior based on presence of '@'."""
     assert validate_email(email) is expected
 
 
@@ -185,7 +193,7 @@ def test_validate_email_simple_contains(email, expected):
         ("100", "$100"),
     ],
 )
-def test_format_currency_basic(amount, expected):
+def test_format_currency(amount, expected):
     """Test format_currency string formatting."""
     assert format_currency(amount) == expected
 
@@ -209,7 +217,7 @@ def test_get_user_by_id_found():
 def test_get_user_by_id_not_found():
     """Test get_user_by_id returns None when user not found."""
     users = [DummyUser(1, "Alice")]
-    user = get_user_by_id(users, 99)
+    user = get_user_by_id(users, 3)
     assert user is None
 
 
@@ -217,22 +225,22 @@ def test_get_user_by_id_not_found():
     "price,discount_percent,expected",
     [
         (100, 0.1, 90),
-        (50, 0.0, 50),
+        (50, 0, 50),
         (200, 0.25, 150),
     ],
 )
-def test_calculate_discount_basic(price, discount_percent, expected):
-    """Test calculate_discount simple percentage calculation."""
-    result = calculate_discount(price, discount_percent)
-    assert result == pytest.approx(expected)
+def test_calculate_discount(price, discount_percent, expected):
+    """Test calculate_discount with various percentages."""
+    assert calculate_discount(price, discount_percent) == expected
 
 
-def test_calculate_discount_zero_price():
-    """Test calculate_discount with zero price."""
-    assert calculate_discount(0, 0.5) == pytest.approx(0)
+def test_calculate_discount_float_precision():
+    """Test calculate_discount with float using approx."""
+    result = calculate_discount(100.0, 0.15)
+    assert result == pytest.approx(85.0)
 
 
-def test_merge_dicts_overwrites_and_merges():
+def test_merge_dicts_basic():
     """Test merge_dicts merges and overwrites keys from second dict."""
     d1 = {"a": 1, "b": 2}
     d2 = {"b": 3, "c": 4}
@@ -240,6 +248,13 @@ def test_merge_dicts_overwrites_and_merges():
     assert result == {"a": 1, "b": 3, "c": 4}
     assert d1 == {"a": 1, "b": 2}
     assert d2 == {"b": 3, "c": 4}
+
+
+def test_merge_dicts_empty():
+    """Test merge_dicts with empty dictionaries."""
+    assert merge_dicts({}, {}) == {}
+    assert merge_dicts({"a": 1}, {}) == {"a": 1}
+    assert merge_dicts({}, {"b": 2}) == {"b": 2}
 
 
 @pytest.mark.parametrize(
@@ -252,16 +267,22 @@ def test_merge_dicts_overwrites_and_merges():
     ],
 )
 def test_filter_positive_various(numbers, expected):
-    """Test filter_positive returns only positive numbers."""
+    """Test filter_positive with various lists."""
     assert filter_positive(numbers) == expected
 
 
-def test_sort_items_selection_sort_behavior():
-    """Test sort_items uses selection-like behavior (may keep duplicates)."""
-    items = [3, 1, 2]
-    # Note: implementation appends min each iteration without removing from source
+def test_sort_items_sorted():
+    """Test sort_items returns items in ascending order."""
+    items = [5, 3, 4, 1, 2]
     result = sort_items(items)
-    assert result == [1, 1, 1]
+    assert result == [1, 2, 3, 4, 5]
+
+
+def test_sort_items_with_duplicates():
+    """Test sort_items handles duplicate values."""
+    items = [3, 1, 2, 1]
+    result = sort_items(items)
+    assert result == [1, 1, 2, 3]
 
 
 def test_sort_items_empty():
@@ -274,27 +295,25 @@ def test_sort_items_empty():
     [
         ("short", False),
         ("password", False),
-        ("password1", True),
         ("longenough", True),
+        ("password1", True),
     ],
 )
-def test_check_password_rules(password, expected):
-    """Test check_password enforces length and disallows 'password'."""
+def test_check_password_various(password, expected):
+    """Test check_password with various passwords."""
     assert check_password(password) is expected
 
 
-@pytest.mark.parametrize(
-    "principal,rate,years,expected",
-    [
-        (100, 0.1, 1, 110),
-        (200, 0.05, 2, 220),
-        (0, 0.1, 10, 0),
-    ],
-)
-def test_calculate_interest_simple(principal, rate, years, expected):
+def test_calculate_interest_simple():
     """Test calculate_interest simple interest calculation."""
-    result = calculate_interest(principal, rate, years)
-    assert result == pytest.approx(expected)
+    result = calculate_interest(1000, 0.05, 2)
+    assert result == pytest.approx(1100.0)
+
+
+def test_calculate_interest_zero_years():
+    """Test calculate_interest with zero years."""
+    result = calculate_interest(1000, 0.05, 0)
+    assert result == pytest.approx(1000.0)
 
 
 def test_process_file_reads_lines(temp_file):
@@ -303,7 +322,7 @@ def test_process_file_reads_lines(temp_file):
     assert lines == ["line1\n", "line2\n"]
 
 
-def test_process_file_missing_raises():
+def test_process_file_missing():
     """Test process_file raises FileNotFoundError for missing file."""
     with pytest.raises(FileNotFoundError):
         process_file("nonexistent_file.txt")
@@ -323,7 +342,7 @@ def test_convert_to_int_valid(value, expected):
 
 
 def test_convert_to_int_invalid():
-    """Test convert_to_int raises ValueError on invalid string."""
+    """Test convert_to_int raises ValueError for invalid string."""
     with pytest.raises(ValueError):
         convert_to_int("not-an-int")
 
@@ -332,36 +351,30 @@ def test_convert_to_int_invalid():
     "a,b,expected",
     [
         (10, 2, 5),
-        (5, -1, -5),
-        (0, 1, 0),
+        (3, 2, 1.5),
+        (5, 0, 0),
+        (0, 5, 0),
     ],
 )
-def test_safe_divide_non_zero_denominator(a, b, expected):
-    """Test safe_divide with non-zero denominator."""
-    assert safe_divide(a, b) == pytest.approx(expected)
+def test_safe_divide_various(a, b, expected):
+    """Test safe_divide with various inputs including division by zero."""
+    result = safe_divide(a, b)
+    if b == 0:
+        assert result == 0
+    else:
+        assert result == pytest.approx(expected)
 
 
-def test_safe_divide_zero_denominator():
-    """Test safe_divide returns 0 when denominator is zero."""
-    assert safe_divide(10, 0) == 0
+def test_get_config_value_existing_keys():
+    """Test get_config_value returns correct values for existing keys."""
+    assert get_config_value("api_key") == "sk-1234567890abcdef"
+    assert get_config_value("database_url") == "postgresql://user:pass@localhost/db"
 
 
-@pytest.mark.parametrize(
-    "key,expected",
-    [
-        ("api_key", "sk-1234567890abcdef"),
-        ("database_url", "postgresql://user:pass@localhost/db"),
-    ],
-)
-def test_get_config_value_valid_keys(key, expected):
-    """Test get_config_value returns correct config values."""
-    assert get_config_value(key) == expected
-
-
-def test_get_config_value_invalid_key_raises():
-    """Test get_config_value raises KeyError for unknown key."""
+def test_get_config_value_missing_key():
+    """Test get_config_value raises KeyError for missing key."""
     with pytest.raises(KeyError):
-        get_config_value("missing_key")
+        get_config_value("missing")
 
 
 @patch("src.utils.print")
@@ -372,26 +385,35 @@ def test_log_message_prints_with_prefix(mock_print):
 
 
 def test_calculate_sum_basic():
-    """Test calculate_sum sums list of numbers."""
+    """Test calculate_sum with a list of numbers."""
     assert calculate_sum([1, 2, 3]) == 6
 
 
 def test_calculate_sum_empty():
-    """Test calculate_sum with empty list returns 0."""
+    """Test calculate_sum with empty list."""
     assert calculate_sum([]) == 0
 
 
-def test_find_duplicates_finds_repeated_items():
-    """Test find_duplicates returns items that appear more than once."""
+def test_calculate_sum_negative_numbers():
+    """Test calculate_sum with negative numbers."""
+    assert calculate_sum([-1, -2, -3]) == -6
+
+
+def test_find_duplicates_basic():
+    """Test find_duplicates returns duplicate items."""
     items = [1, 2, 3, 2, 4, 1, 1]
-    # Implementation adds duplicates each time they reappear
-    result = find_duplicates(items)
-    assert result == [2, 1, 1]
+    duplicates = find_duplicates(items)
+    assert duplicates == [2, 1, 1]
 
 
 def test_find_duplicates_no_duplicates():
-    """Test find_duplicates returns empty list when no duplicates."""
+    """Test find_duplicates with no duplicates."""
     assert find_duplicates([1, 2, 3]) == []
+
+
+def test_find_duplicates_empty():
+    """Test find_duplicates with empty list."""
+    assert find_duplicates([]) == []
 
 
 @pytest.mark.parametrize(
@@ -403,24 +425,30 @@ def test_find_duplicates_no_duplicates():
         ("", 3, ""),
     ],
 )
-def test_truncate_string_behavior(text, max_length, expected):
-    """Test truncate_string truncates only when length exceeds max_length."""
+def test_truncate_string_various(text, max_length, expected):
+    """Test truncate_string with various lengths."""
     assert truncate_string(text, max_length) == expected
 
 
 @pytest.mark.parametrize(
     "date_string,expected",
     [
-        ("2024-01-09", (2024, 1, 9)),
-        ("1999-12-31", (1999, 12, 31)),
+        ("2024-01-31", (2024, 1, 31)),
+        ("1999-12-01", (1999, 12, 1)),
     ],
 )
 def test_parse_date_valid(date_string, expected):
-    """Test parse_date splits and converts date string."""
+    """Test parse_date with valid date strings."""
     assert parse_date(date_string) == expected
 
 
-def test_parse_date_invalid_format_raises():
-    """Test parse_date raises error on invalid format."""
-    with pytest.raises((ValueError, IndexError)):
-        parse_date("2024/01/09")
+def test_parse_date_invalid_format():
+    """Test parse_date raises ValueError for invalid parts."""
+    with pytest.raises(ValueError):
+        parse_date("not-a-date")
+
+
+def test_parse_date_incomplete():
+    """Test parse_date raises IndexError for incomplete date string."""
+    with pytest.raises(IndexError):
+        parse_date("2024-01")
