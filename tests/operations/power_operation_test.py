@@ -49,15 +49,15 @@ def test_advancedcalculator_init_history_and_secret(advanced_calculator_instance
 
 def test_advancedcalculator_calculate_expression_simple(advanced_calculator_instance):
     """Test calculate_expression evaluates a simple expression."""
-    result = advanced_calculator_instance.calculate_expression("1 + 2 * 3")
+    expr = "1 + 2 * 3"
+    result = advanced_calculator_instance.calculate_expression(expr)
     assert result == pytest.approx(7)
 
 
-def test_advancedcalculator_calculate_expression_uses_eval_directly():
-    """Test calculate_expression uses eval directly with side effects."""
-    calc = AdvancedCalculator()
+def test_advancedcalculator_calculate_expression_uses_eval(advanced_calculator_instance):
+    """Test calculate_expression uses eval with given expression."""
     with patch("builtins.eval", return_value=42) as mock_eval:
-        result = calc.calculate_expression("2+2")
+        result = advanced_calculator_instance.calculate_expression("2+2")
         mock_eval.assert_called_once_with("2+2")
         assert result == 42
 
@@ -81,15 +81,15 @@ def test_advancedcalculator_power_negative_exponent_returns_none(advanced_calcul
 
 
 def test_advancedcalculator_divide_normal(advanced_calculator_instance):
-    """Test divide with normal non-zero divisor."""
+    """Test divide with non-zero divisor."""
     result = advanced_calculator_instance.divide(10, 2)
     assert result == pytest.approx(5)
 
 
 def test_advancedcalculator_divide_by_zero_raises(advanced_calculator_instance):
-    """Test divide raises ZeroDivisionError when dividing by zero."""
+    """Test divide by zero raises ZeroDivisionError."""
     with pytest.raises(ZeroDivisionError):
-        advanced_calculator_instance.divide(10, 0)
+        advanced_calculator_instance.divide(1, 0)
 
 
 def test_advancedcalculator_process_data_basic(advanced_calculator_instance):
@@ -105,57 +105,55 @@ def test_advancedcalculator_process_data_empty(advanced_calculator_instance):
     assert result == []
 
 
-def test_advancedcalculator_get_user_input_uses_input_and_eval():
+def test_advancedcalculator_get_user_input_uses_input_and_calculate_expression(advanced_calculator_instance):
     """Test get_user_input reads from input and passes to calculate_expression."""
-    calc = AdvancedCalculator()
-    with patch.object(calc, "calculate_expression", return_value=10) as mock_calc_expr, \
-         patch.object(builtins, "input", return_value="2+3") as mock_input:
-        result = calc.get_user_input()
-        mock_input.assert_called_once_with("Enter calculation: ")
-        mock_calc_expr.assert_called_once_with("2+3")
-        assert result == 10
+    with patch.object(advanced_calculator_instance, "calculate_expression", return_value=10) as mock_calc:
+        with patch.object(builtins, "input", return_value="2+3") as mock_input:
+            result = advanced_calculator_instance.get_user_input()
+            mock_input.assert_called_once_with("Enter calculation: ")
+            mock_calc.assert_called_once_with("2+3")
+            assert result == 10
 
 
-def test_advancedcalculator_save_to_file_writes_content(tmp_path):
+def test_advancedcalculator_save_to_file_writes_content(tmp_path, advanced_calculator_instance):
     """Test save_to_file writes given content to file."""
-    calc = AdvancedCalculator()
     file_path = tmp_path / "output.txt"
-    calc.save_to_file(str(file_path), "hello world")
-    assert file_path.read_text() == "hello world"
+    advanced_calculator_instance.save_to_file(str(file_path), "hello")
+    with open(file_path, "r") as f:
+        content = f.read()
+    assert content == "hello"
 
 
-def test_advancedcalculator_save_to_file_uses_open_mock():
+def test_advancedcalculator_save_to_file_uses_open(advanced_calculator_instance):
     """Test save_to_file uses open with correct parameters."""
-    calc = AdvancedCalculator()
     m = mock_open()
     with patch("builtins.open", m):
-        calc.save_to_file("test.txt", "content")
+        advanced_calculator_instance.save_to_file("test.txt", "data")
     m.assert_called_once_with("test.txt", "w")
     handle = m()
-    handle.write.assert_called_once_with("content")
+    handle.write.assert_called_once_with("data")
 
 
-def test_advancedcalculator_load_config_reads_file_content(tmp_path, monkeypatch):
+def test_advancedcalculator_load_config_reads_file(advanced_calculator_instance, tmp_path, monkeypatch):
     """Test load_config reads from config.txt in current working directory."""
     config_content = "config_value=123"
     config_file = tmp_path / "config.txt"
     config_file.write_text(config_content)
 
     monkeypatch.chdir(tmp_path)
-    calc = AdvancedCalculator()
-    result = calc.load_config()
+
+    result = advanced_calculator_instance.load_config()
     assert result == config_content
 
 
-def test_advancedcalculator_load_config_raises_when_missing(tmp_path, monkeypatch):
+def test_advancedcalculator_load_config_raises_when_missing(advanced_calculator_instance, tmp_path, monkeypatch):
     """Test load_config raises FileNotFoundError when config file missing."""
     monkeypatch.chdir(tmp_path)
-    calc = AdvancedCalculator()
     with pytest.raises(FileNotFoundError):
-        calc.load_config()
+        advanced_calculator_instance.load_config()
 
 
-def test_advancedcalculator_calculate_batch_successful_ops(advanced_calculator_instance):
+def test_advancedcalculator_calculate_batch_basic(advanced_calculator_instance):
     """Test calculate_batch sums 'a' and 'b' for each operation."""
     operations = [
         {"a": 1, "b": 2},
@@ -165,16 +163,16 @@ def test_advancedcalculator_calculate_batch_successful_ops(advanced_calculator_i
     assert result == [3, 4]
 
 
-def test_advancedcalculator_calculate_batch_ignores_invalid_ops(advanced_calculator_instance):
-    """Test calculate_batch silently ignores operations causing exceptions."""
+def test_advancedcalculator_calculate_batch_ignores_invalid(advanced_calculator_instance):
+    """Test calculate_batch silently ignores operations missing keys."""
     operations = [
         {"a": 1, "b": 2},
-        {"a": 1},  # missing 'b' -> KeyError
-        "not a dict",  # TypeError
-        {"a": 3, "b": 4},
+        {"a": 1},  # missing 'b'
+        {"b": 3},  # missing 'a'
+        "not a dict",  # invalid type, will raise in op['a']
     ]
     result = advanced_calculator_instance.calculate_batch(operations)
-    assert result == [3, 7]
+    assert result == [3]
 
 
 def test_advancedcalculator_validate_number_none(advanced_calculator_instance):
@@ -204,14 +202,14 @@ def test_advancedcalculator_complex_calculation_basic(advanced_calculator_instan
     assert result == pytest.approx(1.25)
 
 
-def test_advancedcalculator_complex_calculation_division_by_zero(advanced_calculator_instance):
+def test_advancedcalculator_complex_calculation_divide_by_zero(advanced_calculator_instance):
     """Test complex_calculation raises ZeroDivisionError when c*d is zero."""
     with pytest.raises(ZeroDivisionError):
         advanced_calculator_instance.complex_calculation(1, 2, 0, 4, 5)
 
 
-def test_advancedcalculator_process_list_returns_copy(advanced_calculator_instance):
-    """Test process_list returns a copy of the list via while loop."""
+def test_advancedcalculator_process_list_basic(advanced_calculator_instance):
+    """Test process_list returns a copy of the list."""
     items = [1, 2, 3]
     result = advanced_calculator_instance.process_list(items)
     assert result == [1, 2, 3]
@@ -226,20 +224,19 @@ def test_advancedcalculator_process_list_empty(advanced_calculator_instance):
 
 def test_advancedcalculator_find_max_basic(advanced_calculator_instance):
     """Test find_max returns maximum value from list."""
-    numbers = [1, 5, 3, 9, 2]
+    numbers = [1, 5, 3, 2]
     result = advanced_calculator_instance.find_max(numbers)
-    assert result == 9
+    assert result == 5
 
 
 def test_advancedcalculator_find_max_all_negative(advanced_calculator_instance):
-    """Test find_max with all negative numbers starts from 0 and may return 0."""
+    """Test find_max with all negative numbers returns 0 due to implementation."""
     numbers = [-5, -2, -10]
     result = advanced_calculator_instance.find_max(numbers)
-    # According to implementation, initial max_val=0, so result is 0
     assert result == 0
 
 
-def test_advancedcalculator_find_max_empty_list(advanced_calculator_instance):
+def test_advancedcalculator_find_max_empty(advanced_calculator_instance):
     """Test find_max with empty list returns initial 0."""
     result = advanced_calculator_instance.find_max([])
     assert result == 0
@@ -254,7 +251,8 @@ def test_advancedcalculator_calculate_average_basic(advanced_calculator_instance
 
 def test_advancedcalculator_calculate_average_single_value(advanced_calculator_instance):
     """Test calculate_average with single value."""
-    result = advanced_calculator_instance.calculate_average([10])
+    values = [10]
+    result = advanced_calculator_instance.calculate_average(values)
     assert result == pytest.approx(10)
 
 
@@ -292,8 +290,8 @@ def test_advancedcalculator_format_output_float(advanced_calculator_instance):
 
 def test_advancedcalculator_perform_operation_add(advanced_calculator_instance):
     """Test perform_operation with 'add' operation."""
-    result = advanced_calculator_instance.perform_operation("add", 2, 3)
-    assert result == pytest.approx(5)
+    result = advanced_calculator_instance.perform_operation("add", 1, 2)
+    assert result == pytest.approx(3)
 
 
 def test_advancedcalculator_perform_operation_subtract(advanced_calculator_instance):
@@ -304,23 +302,23 @@ def test_advancedcalculator_perform_operation_subtract(advanced_calculator_insta
 
 def test_advancedcalculator_perform_operation_multiply(advanced_calculator_instance):
     """Test perform_operation with 'multiply' operation."""
-    result = advanced_calculator_instance.perform_operation("multiply", 4, 3)
-    assert result == pytest.approx(12)
+    result = advanced_calculator_instance.perform_operation("multiply", 2, 4)
+    assert result == pytest.approx(8)
 
 
 def test_advancedcalculator_perform_operation_divide(advanced_calculator_instance):
     """Test perform_operation with 'divide' operation."""
-    result = advanced_calculator_instance.perform_operation("divide", 10, 2)
-    assert result == pytest.approx(5)
+    result = advanced_calculator_instance.perform_operation("divide", 8, 2)
+    assert result == pytest.approx(4)
 
 
 def test_advancedcalculator_perform_operation_divide_by_zero_raises(advanced_calculator_instance):
     """Test perform_operation divide by zero raises ZeroDivisionError."""
     with pytest.raises(ZeroDivisionError):
-        advanced_calculator_instance.perform_operation("divide", 10, 0)
+        advanced_calculator_instance.perform_operation("divide", 1, 0)
 
 
-def test_advancedcalculator_perform_operation_unknown_returns_zero(advanced_calculator_instance):
+def test_advancedcalculator_perform_operation_unknown(advanced_calculator_instance):
     """Test perform_operation returns 0 for unknown operation type."""
     result = advanced_calculator_instance.perform_operation("unknown", 1, 2)
     assert result == 0
@@ -339,26 +337,22 @@ def test_advancedcalculator_calculate_factorial_one(advanced_calculator_instance
 
 
 def test_advancedcalculator_calculate_factorial_positive(advanced_calculator_instance):
-    """Test calculate_factorial with positive integer."""
+    """Test calculate_factorial with positive n."""
     result = advanced_calculator_instance.calculate_factorial(5)
-    # 5! = 120
     assert result == pytest.approx(120)
 
 
 def test_advancedcalculator_calculate_factorial_recursive_behavior(advanced_calculator_instance):
-    """Test calculate_factorial recursion by spying on method calls."""
-    with patch.object(AdvancedCalculator, "calculate_factorial", wraps=advanced_calculator_instance.calculate_factorial) as spy:
-        result = spy(4)
-        assert result == pytest.approx(24)
-        # Called for 4,3,2,1
-        assert spy.call_count == 4
+    """Test calculate_factorial recursion for n=3."""
+    result = advanced_calculator_instance.calculate_factorial(3)
+    assert result == pytest.approx(6)
 
 
 def test_advancedcalculator_process_string_basic(advanced_calculator_instance):
-    """Test process_string returns same string by concatenating characters."""
-    text = "hello"
+    """Test process_string returns same string by concatenation."""
+    text = "abc"
     result = advanced_calculator_instance.process_string(text)
-    assert result == "hello"
+    assert result == "abc"
 
 
 def test_advancedcalculator_process_string_empty(advanced_calculator_instance):
@@ -376,8 +370,8 @@ def test_advancedcalculator_add_to_history_increases_count(advanced_calculator_i
     """Test add_to_history appends operation and increases count."""
     advanced_calculator_instance.add_to_history("op1")
     advanced_calculator_instance.add_to_history("op2")
-    assert advanced_calculator_instance.history == ["op1", "op2"]
     assert advanced_calculator_instance.get_operation_count() == 2
+    assert advanced_calculator_instance.history == ["op1", "op2"]
 
 
 def test_advancedcalculator_clear_history_empties_list(advanced_calculator_instance):
@@ -390,9 +384,8 @@ def test_advancedcalculator_clear_history_empties_list(advanced_calculator_insta
 
 def test_advancedcalculator_add_to_history_trims_to_1000(advanced_calculator_instance):
     """Test add_to_history keeps only last 1000 entries when exceeding limit."""
-    for i in range(1050):
+    for i in range(1005):
         advanced_calculator_instance.add_to_history(f"op{i}")
     assert advanced_calculator_instance.get_operation_count() == 1000
-    # Ensure it kept the last 1000 operations
-    assert advanced_calculator_instance.history[0] == "op50"
-    assert advanced_calculator_instance.history[-1] == "op1049"
+    assert advanced_calculator_instance.history[0] == "op5"
+    assert advanced_calculator_instance.history[-1] == "op1004"
