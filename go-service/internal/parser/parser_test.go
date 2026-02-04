@@ -81,3 +81,28 @@ func TestDetectLanguage(t *testing.T) {
 		assert.Equal(t, tc.expected, file.Language)
 	}
 }
+
+func TestNewParserInstance(t *testing.T) {
+	p := NewParser()
+	assert.NotNil(t, p)
+}
+
+func TestDetectLanguage_AdditionalExtensions(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"file.ts", "typescript"},
+		{"file.java", "java"},
+		{"file.cpp", "cpp"},
+		{"file.c", "c"},
+		{"file.rs", "rust"},
+		{"UPPER.GO", "go"},
+		{"SCRIPT.TS", "typescript"},
+	}
+
+	for _, tt := range tests {
+		got := detectLanguage(tt.path)
+		assert.Equal(t, tt.expected, got, tt.path)
+	}
+}
