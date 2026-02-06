@@ -1,19 +1,3 @@
-"""
-Sample file to test that the code review prompt EXCLUDES import-related feedback.
-
-Use this by running a review on a diff that shows only the middle section (e.g. the
-process_config function) WITHOUT the import lines at the top. With the updated
-prompt, the reviewer should NOT flag "undefined name: json" / "undefined name: os"
-and should mark those ranges as LGTM (import-related issues are excluded to avoid
-false positives when the full file is not visible).
-
-To test: create a PR that adds or changes only the process_config block, or feed
-a hunk that contains lines 15-25 (no imports) into the review pipeline.
-"""
-import json
-import os
-
-
 def load_config(path: str) -> dict:
     """Load JSON config from path. Used to test import-exclusion in reviews."""
     with open(path, "r") as f:
