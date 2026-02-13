@@ -1,152 +1,133 @@
 import sys
+import types
 import sqlite3
-import importlib
 import pytest
-from types import ModuleType, SimpleNamespace
-from unittest.mock import MagicMock, Mock, call
+from unittest.mock import Mock
+
+# Create a dummy backend.cal module with greet_user to satisfy import in app.py
+backend_module = types.ModuleType("backend")
+cal_module = types.ModuleType("backend.cal")
+def _dummy_greet_user(user, val):
+    return None
+setattr(cal_module, "greet_user", _dummy_greet_user)
+backend_module.cal = cal_module
+sys.modules["backend"] = backend_module
+sys.modules["backend.cal"] = cal_module
+
+from app import login, register, update_password, delete_user
+import app as app_module
 
 
 @pytest.fixture
-def mock_env(monkeypatch):
-    """Set up a mocked environment: backend.cal.greet_user and sqlite3 connection/cursor."""
-    # Mock the external backend.cal.greet_user
-    backend_mod = ModuleType("backend")
-    cal_mod = ModuleType("backend.cal")
-    greet_user_mock = Mock(name="greet_user")
-    cal_mod.greet_user = greet_user_mock
-    backend_mod.cal = cal_mod
-    sys.modules["backend"] = backend_mod
-    sys.modules["backend.cal"] = cal_mod
+def app_db(monkeypatch):
+    """
+    Fixture to provide a fresh in-memory SQLite database and mock greet_user
+    for each test. It also patches app.conn and app.cursor to use this DB.
+    """
+    conn = sqlite3.connect(":memory:")
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE users (username TEXT PRIMARY KEY, password TEXT)")
+    conn.commit()
 
-    # Mock sqlite connection and cursor
-    cursor = MagicMock(name="cursor")
-    cursor.execute.return_value = cursor  # support chaining: execute(...).fetchall()
-    cursor.fetchall.return_value = []
-    cursor.fetchone.return_value = None
-    cursor.rowcount = 0
+    # Patch the globals in app module
+    monkeypatch.setattr(app_module, "conn", conn)
+    monkeypatch.setattr(app_module, "cursor", cursor)
 
-    conn = MagicMock(name="conn")
-    conn.cursor.return_value = cursor
+    # Mock greet_user to avoid external dependency and to assert calls
+    greet_mock = Mock()
+    monkeypatch.setattr(app_module, "greet_user", greet_mock)
 
-    def fake_connect(_):
-        return conn
+    yield {"conn": conn, "cursor": cursor, "greet_mock": greet_mock}
 
-    monkeypatch.setattr(sqlite3, "connect", fake_connect)
-
-    # Ensure a fresh import of app for each test
-    if "app" in sys.modules:
-        del sys.modules["app"]
-
-    return SimpleNamespace(conn=conn, cursor=cursor, greet_user=greet_user_mock)
+    conn.close()
 
 
-@pytest.mark.parametrize(
-    "user,pw,rows",
-    [
-        ("alice", "secret", [("alice", "secret")]),
-        ("admin' OR 1=1--", "x", [("row1",), ("row2",)]),
-    ],
-)
-def test_login_returns_query_results_and_calls_greet_user(mock_env, user, pw, rows):
-    """Test login returns cursor.fetchall results and calls greet_user with correct args."""
-    from app import login
-
-    mock_env.cursor.fetchall.return_value = rows
+@pytest.mark.parametrize("user,pw", [
+    ("alice", "pw1"),
+    ("bob", "secret"),
+])
+def test_login_success_returns_row_and_calls_greet_user(app_db, user, pw):
+    """Test that login returns a matching row and calls greet_user with correct args."""
+    assert register(user, pw) == "User registered successfully"
     result = login(user, pw)
 
-    assert result == rows
-    mock_env.greet_user.assert_called_once_with(user, "15")
-    expected_query = f"SELECT * FROM users WHERE username = '{user}' AND password = '{pw}'"
-    mock_env.cursor.execute.assert_called_once_with(expected_query)
+    app_db["greet_mock"].assert_called_once_with(user, "15")
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0] == (user, pw)
 
 
-def test_register_success_commits_and_uses_parameterized_query(mock_env):
-    """Test register inserts a new user with parameterized query and commits on success."""
-    from app import register
+def test_login_wrong_credentials_returns_empty_list_and_calls_greet_user(app_db):
+    """Test login with wrong password returns empty list and greet_user is still called."""
+    assert register("charlie", "rightpw") == "User registered successfully"
+    result = login("charlie", "wrongpw")
 
-    user, pw = "bob", "hunter2"
-    result = register(user, pw)
-
-    assert result == "User registered successfully"
-    mock_env.cursor.execute.assert_called_once_with(
-        "INSERT INTO users (username, password) VALUES (?, ?)", (user, pw)
-    )
-    mock_env.conn.commit.assert_called_once()
+    app_db["greet_mock"].assert_called_once_with("charlie", "15")
+    assert result == []
 
 
-def test_register_duplicate_username_returns_message_no_commit(mock_env):
-    """Test register handles sqlite3.IntegrityError and does not commit on duplicate username."""
-    from app import register
-
-    user, pw = "alice", "pw"
-    mock_env.cursor.execute.side_effect = sqlite3.IntegrityError
-
-    result = register(user, pw)
-
-    assert result == "Username already exists"
-    mock_env.conn.commit.assert_not_called()
+def test_register_success_then_duplicate_username_returns_message(app_db):
+    """Test registering a user succeeds, and duplicate username returns proper error message."""
+    assert register("dupuser", "pw") == "User registered successfully"
+    assert register("dupuser", "another") == "Username already exists"
 
 
-@pytest.mark.parametrize(
-    "found,expected_message,should_commit",
-    [
-        (True, "Password updated successfully", True),
-        (False, "Incorrect old password", False),
-    ],
-)
-def test_update_password_behavior_based_on_current_credentials(
-    mock_env, found, expected_message, should_commit
-):
-    """Test update_password updates when current credentials match, else returns error."""
-    from app import update_password
+def test_update_password_success_persists_change(app_db):
+    """Test that updating password with correct old password succeeds and persists."""
+    assert register("dave", "oldpw") == "User registered successfully"
+    msg = update_password("dave", "oldpw", "newpw")
+    assert msg == "Password updated successfully"
 
-    user = "bob"
-    old_pw = "old"
-    new_pw = "newpass"
-    mock_env.cursor.fetchone.return_value = ("row",) if found else None
-
-    result = update_password(user, old_pw, new_pw)
-
-    assert result == expected_message
-    # First call is the SELECT
-    assert mock_env.cursor.execute.call_args_list[0] == call(
-        "SELECT * FROM users WHERE username = ? AND password = ?", (user, old_pw)
-    )
-    if found:
-        # Second call should be the UPDATE
-        assert mock_env.cursor.execute.call_args_list[1] == call(
-            "UPDATE users SET password = ? WHERE username = ?", (new_pw, user)
-        )
-        mock_env.conn.commit.assert_called_once()
-    else:
-        # No UPDATE executed, no commit
-        assert len(mock_env.cursor.execute.call_args_list) == 1
-        mock_env.conn.commit.assert_not_called()
+    # Verify old password no longer works, new password works
+    result_old = login("dave", "oldpw")
+    result_new = login("dave", "newpw")
+    assert result_old == []
+    assert len(result_new) == 1 and result_new[0] == ("dave", "newpw")
 
 
-@pytest.mark.parametrize(
-    "rowcount,expected_message,should_commit",
-    [
-        (1, "User deleted successfully", True),
-        (0, "User not found or incorrect password", False),
-    ],
-)
-def test_delete_user_deletion_outcome_based_on_rowcount(
-    mock_env, rowcount, expected_message, should_commit
-):
-    """Test delete_user commits and returns success only when a row is deleted."""
-    from app import delete_user
+def test_update_password_incorrect_old_password_returns_message(app_db):
+    """Test that updating password with incorrect old password returns proper message and no change."""
+    assert register("eve", "secret") == "User registered successfully"
+    msg = update_password("eve", "wrong", "newsecret")
+    assert msg == "Incorrect old password"
 
-    user, pw = "carl", "pass"
-    mock_env.cursor.rowcount = rowcount
+    # Verify password unchanged
+    assert login("eve", "secret") != []
+    assert login("eve", "newsecret") == []
 
-    result = delete_user(user, pw)
 
-    assert result == expected_message
-    mock_env.cursor.execute.assert_called_once_with(
-        "DELETE FROM users WHERE username = ? AND password = ?", (user, pw)
-    )
-    if should_commit:
-        mock_env.conn.commit.assert_called_once()
-    else:
-        mock_env.conn.commit.assert_not_called()
+def test_delete_user_success_removes_user(app_db):
+    """Test deleting an existing user with correct password succeeds and removes the user."""
+    assert register("frank", "pw") == "User registered successfully"
+    msg = delete_user("frank", "pw")
+    assert msg == "User deleted successfully"
+    assert login("frank", "pw") == []
+
+
+def test_delete_user_incorrect_password_or_not_found(app_db):
+    """Test deleting a user with incorrect password or non-existent user returns proper message."""
+    assert register("grace", "pw") == "User registered successfully"
+    # Incorrect password
+    msg_incorrect = delete_user("grace", "wrong")
+    assert msg_incorrect == "User not found or incorrect password"
+    # Non-existent user
+    msg_missing = delete_user("nobody", "pw")
+    assert msg_missing == "User not found or incorrect password"
+
+
+def test_login_sql_injection_bypasses_auth_and_returns_multiple_rows(app_db):
+    """Test that login is vulnerable to SQL injection and returns multiple rows."""
+    # Insert multiple users
+    assert register("u1", "p1") == "User registered successfully"
+    assert register("u2", "p2") == "User registered successfully"
+
+    injection_username = "' OR '1'='1' -- "
+    result = login(injection_username, "doesnt_matter")
+
+    app_db["greet_mock"].assert_called_once_with(injection_username, "15")
+    # Expect all rows to be returned due to injection
+    assert isinstance(result, list)
+    assert len(result) == 2
+    # The returned rows should correspond to the inserted users (order may be deterministic here)
+    returned_users = {row[0] for row in result}
+    assert returned_users == {"u1", "u2"}

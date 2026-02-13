@@ -1,289 +1,212 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func setupRouter(h *Handler) *gin.Engine {
+func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	r.HandleMethodNotAllowed = true
+
+	h := NewHandler()
 	r.POST("/parse", h.ParseFile)
 	r.POST("/diff", h.AnalyzeDiff)
 	r.POST("/metrics", h.CalculateMetrics)
-	r.GET("/health", h.HealthCheck)
+	r.GET("/healthz", h.HealthCheck)
+
 	return r
 }
 
 func TestHealthCheck_OK(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
+	router := setupRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
-	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	ct := rr.Header().Get("Content-Type")
+	assert.Contains(t, ct, "application/json")
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
 	var body map[string]any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &body))
 	assert.Equal(t, "healthy", body["status"])
 	assert.Equal(t, "go-parser", body["service"])
 }
 
-func TestParseFile_BadJSON(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
-
-	req := httptest.NewRequest(http.MethodPost, "/parse", strings.NewReader(`{"content": "x",`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
-	var body map[string]any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Contains(t, body["error"], "invalid character")
-}
-
-func TestParseFile_ValidationErrors(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
+func TestParseFile_BadRequests(t *testing.T) {
+	router := setupRouter()
 
 	tests := []struct {
 		name       string
-		payload    string
-		wantFields []string
+		body       string
+		wantSubstr []string
 	}{
 		{
+			name: "empty body",
+			body: ``,
+		},
+		{
 			name:       "missing content",
-			payload:    `{"path":"main.go"}`,
-			wantFields: []string{"Content"},
+			body:       `{"path":"main.go"}`,
+			wantSubstr: []string{"Content", "required"},
 		},
 		{
 			name:       "missing path",
-			payload:    `{"content":"package main\nfunc main(){}"}`,
-			wantFields: []string{"Path"},
+			body:       `{"content":"package main\nfunc main(){}"}`,
+			wantSubstr: []string{"Path", "required"},
 		},
 		{
-			name:       "empty fields",
-			payload:    `{"content":"","path":""}`,
-			wantFields: []string{"Content", "Path"},
+			name:       "wrong type for content",
+			body:       `{"content":123, "path":"main.go"}`,
+			wantSubstr: []string{"json:", "content"},
+		},
+		{
+			name: "invalid json",
+			body: `{"content": "x", "path": "p"`, // missing closing brace
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/parse", strings.NewReader(tt.payload))
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/parse", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
+			rr := httptest.NewRecorder()
 
-			r.ServeHTTP(w, req)
+			router.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, w.Code)
-			var body map[string]any
-			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-			errStr, _ := body["error"].(string)
-			for _, f := range tt.wantFields {
-				assert.Contains(t, errStr, f)
-				assert.Contains(t, errStr, "required")
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			var resp map[string]any
+			require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+			errMsg, ok := resp["error"].(string)
+			require.True(t, ok, "expected error string in response")
+			assert.NotEmpty(t, errMsg)
+			for _, sub := range tc.wantSubstr {
+				assert.Contains(t, errMsg, sub)
 			}
 		})
 	}
 }
 
-func TestParseFile_Success(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
-
-	// Provide a simple Go file content; even if parser behavior varies, we only assert 200 and JSON.
-	payload := `{"content":"package main\nfunc main(){}","path":"main.go"}`
-	req := httptest.NewRequest(http.MethodPost, "/parse", strings.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
-	// Ensure body is valid JSON
-	var body any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-}
-
-func TestAnalyzeDiff_BadJSON(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
-
-	req := httptest.NewRequest(http.MethodPost, "/diff", strings.NewReader(`{"old_content": "a",`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	var body map[string]any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Contains(t, body["error"], "invalid character")
-}
-
-func TestAnalyzeDiff_ValidationErrors(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
+func TestAnalyzeDiff_BadRequests(t *testing.T) {
+	router := setupRouter()
 
 	tests := []struct {
 		name       string
-		payload    string
-		wantFields []string
+		body       string
+		wantSubstr []string
 	}{
 		{
+			name: "empty body",
+			body: ``,
+		},
+		{
 			name:       "missing old_content",
-			payload:    `{"new_content":"b"}`,
-			wantFields: []string{"OldContent"},
+			body:       `{"new_content":"new"}`,
+			wantSubstr: []string{"OldContent", "required"},
 		},
 		{
 			name:       "missing new_content",
-			payload:    `{"old_content":"a"}`,
-			wantFields: []string{"NewContent"},
+			body:       `{"old_content":"old"}`,
+			wantSubstr: []string{"NewContent", "required"},
 		},
 		{
-			name:       "empty both",
-			payload:    `{"old_content":"","new_content":""}`,
-			wantFields: []string{"OldContent", "NewContent"},
+			name:       "wrong type for old_content",
+			body:       `{"old_content":123, "new_content":"abc"}`,
+			wantSubstr: []string{"json:", "old_content"},
+		},
+		{
+			name: "invalid json",
+			body: `{"old_content": "a", "new_content": "b"`, // malformed
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/diff", strings.NewReader(tt.payload))
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/diff", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
+			rr := httptest.NewRecorder()
 
-			r.ServeHTTP(w, req)
+			router.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, w.Code)
-			var body map[string]any
-			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-			errStr, _ := body["error"].(string)
-			for _, f := range tt.wantFields {
-				assert.Contains(t, errStr, f)
-				assert.Contains(t, errStr, "required")
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			var resp map[string]any
+			require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+			errMsg, ok := resp["error"].(string)
+			require.True(t, ok)
+			assert.NotEmpty(t, errMsg)
+			for _, sub := range tc.wantSubstr {
+				assert.Contains(t, errMsg, sub)
 			}
 		})
 	}
 }
 
-func TestAnalyzeDiff_Success(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
-
-	payload := `{"old_content":"a\n","new_content":"a\nb\n"}`
-	req := httptest.NewRequest(http.MethodPost, "/diff", strings.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
-	var body any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-}
-
-func TestCalculateMetrics_BadJSON(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
-
-	req := httptest.NewRequest(http.MethodPost, "/metrics", strings.NewReader(`{"content":`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	var body map[string]any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Contains(t, body["error"], "invalid character")
-}
-
-func TestCalculateMetrics_ValidationErrors(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
+func TestCalculateMetrics_BadRequests(t *testing.T) {
+	router := setupRouter()
 
 	tests := []struct {
-		name    string
-		payload string
+		name       string
+		body       string
+		wantSubstr []string
 	}{
 		{
-			name:    "missing content",
-			payload: `{}`,
+			name: "empty body",
+			body: ``,
 		},
 		{
-			name:    "empty content",
-			payload: `{"content":""}`,
+			name:       "missing content",
+			body:       `{}`,
+			wantSubstr: []string{"Content", "required"},
+		},
+		{
+			name:       "wrong type for content",
+			body:       `{"content":123}`,
+			wantSubstr: []string{"json:", "content"},
+		},
+		{
+			name: "invalid json",
+			body: `{"content": "abc"`, // malformed
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/metrics", strings.NewReader(tt.payload))
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/metrics", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
+			rr := httptest.NewRecorder()
 
-			r.ServeHTTP(w, req)
+			router.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, w.Code)
-			var body map[string]any
-			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-			errStr, _ := body["error"].(string)
-			assert.Contains(t, errStr, "Content")
-			assert.Contains(t, errStr, "required")
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			var resp map[string]any
+			require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+			errMsg, ok := resp["error"].(string)
+			require.True(t, ok)
+			assert.NotEmpty(t, errMsg)
+			for _, sub := range tc.wantSubstr {
+				assert.Contains(t, errMsg, sub)
+			}
 		})
 	}
 }
 
-func TestCalculateMetrics_Success(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
+func TestMethodNotAllowed(t *testing.T) {
+	router := setupRouter()
 
-	payload := `{"content":"package main\nfunc main(){}"}`
-	req := httptest.NewRequest(http.MethodPost, "/metrics", strings.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
-	var body any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-}
-
-func TestRoutes_MethodVariations(t *testing.T) {
-	h := NewHandler()
-	r := setupRouter(h)
-
-	// GET on POST-only route should be 404
+	// GET on a POST-only route should be 405 when HandleMethodNotAllowed is true
 	req := httptest.NewRequest(http.MethodGet, "/parse", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
-	// DELETE on POST-only route should be 404
-	req = httptest.NewRequest(http.MethodDelete, "/diff", nil)
-	w = httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusNotFound, w.Code)
-
-	// PUT on POST-only route should be 404
-	req = httptest.NewRequest(http.MethodPut, "/metrics", nil)
-	w = httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 }

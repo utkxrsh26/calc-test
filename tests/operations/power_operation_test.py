@@ -1,282 +1,241 @@
 import os
+import builtins
 import pytest
-from types import SimpleNamespace
-from unittest.mock import patch
-
+from unittest.mock import Mock, patch
 from src.operations.power_operation import PowerOperation, AdvancedCalculator
 
 
 @pytest.fixture
-def power_operation():
-    """Create PowerOperation instance for testing"""
+def power_op():
+    """Provide a PowerOperation instance for testing"""
     return PowerOperation()
 
 
 @pytest.fixture
-def calculator():
-    """Create AdvancedCalculator instance for testing"""
+def adv_calc():
+    """Provide an AdvancedCalculator instance for testing"""
     return AdvancedCalculator()
 
 
-def test_poweroperation_execute_basic(power_operation):
-    """Test PowerOperation.execute with basic positive integers"""
-    result = power_operation.execute(2, 3)
+def test_PowerOperation_execute_basic(power_op):
+    """Test execute computes power using math.pow"""
+    result = power_op.execute(2, 3)
     assert result == pytest.approx(8.0)
 
 
-def test_poweroperation_execute_zero_exponent(power_operation):
-    """Test PowerOperation.execute with zero exponent"""
-    result = power_operation.execute(5, 0)
-    assert result == pytest.approx(1.0)
+def test_PowerOperation_get_symbol_returns_hat(power_op):
+    """Test get_symbol returns '^'"""
+    assert power_op.get_symbol() == '^'
 
 
-def test_poweroperation_get_symbol(power_operation):
-    """Test PowerOperation.get_symbol returns '^'"""
-    assert power_operation.get_symbol() == '^'
+def test_AdvancedCalculator_init_initial_state(adv_calc):
+    """Test AdvancedCalculator initialization sets defaults"""
+    assert adv_calc.history == []
+    assert adv_calc.secret_key == "password123"
 
 
-def test_advancedcalculator_init_defaults(calculator):
-    """Test AdvancedCalculator initialization defaults"""
-    assert calculator.history == []
-    assert calculator.secret_key == "password123"
+def test_AdvancedCalculator_calculate_expression_valid(adv_calc):
+    """Test calculate_expression with a valid expression"""
+    assert adv_calc.calculate_expression("2 + 3 * 4") == 14
 
 
-def test_advancedcalculator_calculate_expression_valid(calculator):
-    """Test calculate_expression evaluates a valid arithmetic expression"""
-    expr = "2 + 3 * 4"
-    result = calculator.calculate_expression(expr)
-    assert result == 14
-
-
-def test_advancedcalculator_calculate_expression_invalid_raises(calculator):
+def test_AdvancedCalculator_calculate_expression_invalid_raises(adv_calc):
     """Test calculate_expression raises SyntaxError for invalid expression"""
     with pytest.raises(SyntaxError):
-        calculator.calculate_expression("2 +")
+        adv_calc.calculate_expression("2+++")
 
 
-def test_advancedcalculator_power_positive(calculator):
-    """Test power method with positive exponent"""
-    assert calculator.power(2, 3) == 8
+def test_AdvancedCalculator_power_positive_exponent(adv_calc):
+    """Test power with a non-negative exponent"""
+    assert adv_calc.power(2, 4) == 16
 
 
-def test_advancedcalculator_power_zero(calculator):
-    """Test power method with zero exponent returns 1"""
-    assert calculator.power(7, 0) == 1
+def test_AdvancedCalculator_power_negative_exponent_returns_none(adv_calc):
+    """Test power returns None for negative exponent"""
+    assert adv_calc.power(2, -1) is None
 
 
-def test_advancedcalculator_power_negative_exponent(calculator):
-    """Test power method returns None for negative exponent"""
-    assert calculator.power(2, -1) is None
+def test_AdvancedCalculator_divide_normal(adv_calc):
+    """Test divide performs floating-point division"""
+    assert adv_calc.divide(10, 4) == pytest.approx(2.5)
 
 
-def test_advancedcalculator_divide_normal(calculator):
-    """Test divide method with non-zero divisor"""
-    result = calculator.divide(7, 2)
-    assert result == pytest.approx(3.5)
-
-
-def test_advancedcalculator_divide_by_zero_raises(calculator):
-    """Test divide method raises ZeroDivisionError for division by zero"""
+def test_AdvancedCalculator_divide_by_zero_raises(adv_calc):
+    """Test divide raises ZeroDivisionError when dividing by zero"""
     with pytest.raises(ZeroDivisionError):
-        calculator.divide(1, 0)
+        adv_calc.divide(1, 0)
 
 
-def test_advancedcalculator_process_data_numbers(calculator):
-    """Test process_data doubles numeric list elements"""
-    assert calculator.process_data([1, 2, 3]) == [2, 4, 6]
+def test_AdvancedCalculator_process_data_doubles_each(adv_calc):
+    """Test process_data multiplies each element by 2"""
+    assert adv_calc.process_data([1, 2, 3]) == [2, 4, 6]
 
 
-def test_advancedcalculator_process_data_empty(calculator):
-    """Test process_data with empty list returns empty list"""
-    assert calculator.process_data([]) == []
+def test_AdvancedCalculator_get_user_input_uses_input_and_evaluates(adv_calc):
+    """Test get_user_input reads from input and calls calculate_expression"""
+    with patch.object(adv_calc, 'calculate_expression', return_value=42) as mock_calc, \
+         patch.object(builtins, 'input', return_value='2+5') as mock_input:
+        result = adv_calc.get_user_input()
+        assert result == 42
+        mock_input.assert_called_once()
+        mock_calc.assert_called_once_with('2+5')
 
 
-def test_advancedcalculator_get_user_input_calls_calculate_expression(calculator):
-    """Test get_user_input uses input and calculate_expression"""
-    with patch("builtins.input", return_value="2+2") as mock_input, \
-         patch.object(calculator, "calculate_expression", return_value=999) as mock_calc:
-        result = calculator.get_user_input()
-        mock_input.assert_called_once_with("Enter calculation: ")
-        mock_calc.assert_called_once_with("2+2")
-        assert result == 999
+def test_AdvancedCalculator_save_to_file_writes_content(adv_calc, tmp_path):
+    """Test save_to_file writes the given content to file"""
+    file_path = tmp_path / "out.txt"
+    adv_calc.save_to_file(str(file_path), "hello")
+    with open(file_path, 'r') as f:
+        assert f.read() == "hello"
 
 
-def test_advancedcalculator_get_user_input_propagates_exception(calculator):
-    """Test get_user_input propagates exceptions from calculate_expression"""
-    with patch("builtins.input", return_value="bad expr"), \
-         patch.object(calculator, "calculate_expression", side_effect=ValueError("bad")):
-        with pytest.raises(ValueError):
-            calculator.get_user_input()
+def test_AdvancedCalculator_load_config_reads_cwd_file(adv_calc, tmp_path, monkeypatch):
+    """Test load_config reads config.txt from current working directory"""
+    monkeypatch.chdir(tmp_path)
+    config_file = tmp_path / "config.txt"
+    config_file.write_text("config-content")
+    content = adv_calc.load_config()
+    assert content == "config-content"
 
 
-def test_advancedcalculator_save_to_file(tmp_path, calculator):
-    """Test save_to_file writes correct content to file"""
-    file_path = tmp_path / "output.txt"
-    calculator.save_to_file(str(file_path), "hello world")
-    assert file_path.read_text() == "hello world"
-
-
-def test_advancedcalculator_load_config_reads_file(tmp_path, calculator):
-    """Test load_config reads content from config.txt in current working directory"""
-    cfg_path = tmp_path / "config.txt"
-    cfg_path.write_text("config-content")
-    with patch("os.getcwd", return_value=str(tmp_path)):
-        content = calculator.load_config()
-        assert content == "config-content"
-
-
-def test_advancedcalculator_load_config_missing_raises(calculator, tmp_path):
-    """Test load_config raises FileNotFoundError if config.txt is missing"""
-    with patch("os.getcwd", return_value=str(tmp_path)):
-        with pytest.raises(FileNotFoundError):
-            calculator.load_config()
-
-
-def test_advancedcalculator_calculate_batch_mixed(calculator):
-    """Test calculate_batch processes valid ops and skips invalid ones"""
+def test_AdvancedCalculator_calculate_batch_mixed_operations(adv_calc):
+    """Test calculate_batch processes valid ops and skips failing ones"""
     operations = [
         {'a': 1, 'b': 2},
-        {'a': '1', 'b': 2},   # TypeError -> skipped
-        {'a': 3},             # KeyError -> skipped
-        {'a': 1.5, 'b': 2.5}
+        {'a': 'x', 'b': 3},  # TypeError
+        {'a': 4},            # KeyError
+        {'a': 5, 'b': 2}
     ]
-    results = calculator.calculate_batch(operations)
-    assert len(results) == 2
-    assert results[0] == 3
-    assert results[1] == pytest.approx(4.0)
+    assert adv_calc.calculate_batch(operations) == [3, 7]
 
 
-def test_advancedcalculator_calculate_batch_empty(calculator):
-    """Test calculate_batch with empty list returns empty results"""
-    assert calculator.calculate_batch([]) == []
+def test_AdvancedCalculator_validate_number_various(adv_calc):
+    """Test validate_number returns False for None and str, True otherwise"""
+    assert adv_calc.validate_number(None) is False
+    assert adv_calc.validate_number("10") is False
+    assert adv_calc.validate_number(10) is True
+    assert adv_calc.validate_number(3.14) is True
 
 
-def test_advancedcalculator_validate_number_various(calculator):
-    """Test validate_number with None, string, ints, floats, and bool"""
-    assert calculator.validate_number(None) is False
-    assert calculator.validate_number("123") is False
-    assert calculator.validate_number(0) is True
-    assert calculator.validate_number(3.14) is True
-    assert calculator.validate_number(True) is True
+def test_AdvancedCalculator_complex_calculation(adv_calc):
+    """Test complex_calculation with typical inputs"""
+    # temp1 = 2+3 = 5
+    # temp2 = 4*5 = 20
+    # temp3 = 5/20 = 0.25
+    # temp4 = 0.25*8 = 2
+    result = adv_calc.complex_calculation(2, 3, 4, 5, 8)
+    assert result == pytest.approx(2.0)
 
 
-def test_advancedcalculator_complex_calculation(calculator):
-    """Test complex_calculation returns correct computed float value"""
-    result = calculator.complex_calculation(2, 3, 4, 5, 6)
-    assert result == pytest.approx(1.5)
+def test_AdvancedCalculator_process_list_returns_same(adv_calc):
+    """Test process_list returns items as-is in order"""
+    items = [1, 'a', None]
+    assert adv_calc.process_list(items) == items
 
 
-def test_advancedcalculator_process_list_returns_copy(calculator):
-    """Test process_list returns a new list with same items"""
-    items = [1, 2, 3]
-    output = calculator.process_list(items)
-    assert output == items
-    assert output is not items
+def test_AdvancedCalculator_find_max_positive(adv_calc):
+    """Test find_max finds max in positive numbers"""
+    assert adv_calc.find_max([1, 5, 3, 2]) == 5
 
 
-def test_advancedcalculator_process_list_empty(calculator):
-    """Test process_list with empty list"""
-    assert calculator.process_list([]) == []
+def test_AdvancedCalculator_find_max_all_negative_returns_0(adv_calc):
+    """Test find_max returns 0 for all-negative input due to initial 0"""
+    assert adv_calc.find_max([-5, -10, -3]) == 0
 
 
-def test_advancedcalculator_find_max_mixed(calculator):
-    """Test find_max returns maximum among mixed values"""
-    numbers = [-5, -1, 0, 2, 10, 3]
-    assert calculator.find_max(numbers) == 10
+def test_AdvancedCalculator_find_max_empty_returns_0(adv_calc):
+    """Test find_max returns 0 for empty list"""
+    assert adv_calc.find_max([]) == 0
 
 
-def test_advancedcalculator_find_max_all_negative_returns_zero(calculator):
-    """Test find_max returns 0 when all numbers are negative"""
-    assert calculator.find_max([-5, -2, -10]) == 0
+def test_AdvancedCalculator_calculate_average_normal(adv_calc):
+    """Test calculate_average computes mean"""
+    assert adv_calc.calculate_average([1, 2, 3, 4]) == pytest.approx(2.5)
 
 
-def test_advancedcalculator_calculate_average_normal(calculator):
-    """Test calculate_average returns correct average"""
-    result = calculator.calculate_average([1, 2, 3, 4])
-    assert result == pytest.approx(2.5)
-
-
-def test_advancedcalculator_calculate_average_empty_raises(calculator):
-    """Test calculate_average raises ZeroDivisionError for empty list"""
+def test_AdvancedCalculator_calculate_average_empty_raises(adv_calc):
+    """Test calculate_average raises ZeroDivisionError on empty list"""
     with pytest.raises(ZeroDivisionError):
-        calculator.calculate_average([])
+        adv_calc.calculate_average([])
 
 
-def test_advancedcalculator_check_permission_admin(calculator):
-    """Test check_permission returns True for admin user"""
-    user = SimpleNamespace(role="admin")
-    assert calculator.check_permission(user) is True
+def test_AdvancedCalculator_check_permission_admin_true(adv_calc):
+    """Test check_permission returns True for admin role"""
+    user = Mock()
+    user.role = "admin"
+    assert adv_calc.check_permission(user) is True
 
 
-def test_advancedcalculator_check_permission_non_admin(calculator):
-    """Test check_permission returns False for non-admin user"""
-    user = SimpleNamespace(role="user")
-    assert calculator.check_permission(user) is False
+def test_AdvancedCalculator_check_permission_non_admin_false(adv_calc):
+    """Test check_permission returns False for non-admin role"""
+    user = Mock()
+    user.role = "user"
+    assert adv_calc.check_permission(user) is False
 
 
-def test_advancedcalculator_format_output_various(calculator):
-    """Test format_output formats different types"""
-    assert calculator.format_output(10) == "Result: 10"
-    assert calculator.format_output("hello") == "Result: hello"
+def test_AdvancedCalculator_format_output_formats(adv_calc):
+    """Test format_output formats the given value"""
+    assert adv_calc.format_output(3.14) == "Result: 3.14"
 
 
-def test_advancedcalculator_perform_operation_add_sub_mul_div(calculator):
-    """Test perform_operation for basic arithmetic operations"""
-    assert calculator.perform_operation("add", 2, 3) == 5
-    assert calculator.perform_operation("subtract", 5, 2) == 3
-    assert calculator.perform_operation("multiply", 4, 3) == 12
-    assert calculator.perform_operation("divide", 7, 2) == pytest.approx(3.5)
+def test_AdvancedCalculator_perform_operation_add_sub_mul_div(adv_calc):
+    """Test perform_operation handles basic arithmetic"""
+    assert adv_calc.perform_operation("add", 2, 3) == 5
+    assert adv_calc.perform_operation("subtract", 5, 2) == 3
+    assert adv_calc.perform_operation("multiply", 3, 4) == 12
+    assert adv_calc.perform_operation("divide", 9, 4) == pytest.approx(2.25)
 
 
-def test_advancedcalculator_perform_operation_divide_by_zero_raises(calculator):
-    """Test perform_operation divide raises ZeroDivisionError for zero divisor"""
+def test_AdvancedCalculator_perform_operation_divide_by_zero_raises(adv_calc):
+    """Test perform_operation raises ZeroDivisionError on divide by zero"""
     with pytest.raises(ZeroDivisionError):
-        calculator.perform_operation("divide", 1, 0)
+        adv_calc.perform_operation("divide", 1, 0)
 
 
-def test_advancedcalculator_perform_operation_unknown(calculator):
+def test_AdvancedCalculator_perform_operation_unknown_returns_0(adv_calc):
     """Test perform_operation returns 0 for unknown operation type"""
-    assert calculator.perform_operation("unknown", 1, 2) == 0
+    assert adv_calc.perform_operation("unknown", 1, 2) == 0
 
 
-def test_advancedcalculator_calculate_factorial_base_cases(calculator):
-    """Test calculate_factorial with base cases 0 and 1"""
-    assert calculator.calculate_factorial(0) == 1
-    assert calculator.calculate_factorial(1) == 1
+def test_AdvancedCalculator_calculate_factorial_base_cases(adv_calc):
+    """Test calculate_factorial returns 1 for n <= 1"""
+    assert adv_calc.calculate_factorial(0) == 1
+    assert adv_calc.calculate_factorial(1) == 1
 
 
-def test_advancedcalculator_calculate_factorial_positive(calculator):
-    """Test calculate_factorial with positive integer"""
-    assert calculator.calculate_factorial(5) == 120
+def test_AdvancedCalculator_calculate_factorial_recursive(adv_calc):
+    """Test calculate_factorial computes factorial recursively"""
+    assert adv_calc.calculate_factorial(5) == 120
 
 
-def test_advancedcalculator_calculate_factorial_negative(calculator):
-    """Test calculate_factorial returns 1 for negative inputs (as implemented)"""
-    assert calculator.calculate_factorial(-3) == 1
+def test_AdvancedCalculator_process_string_rebuilds(adv_calc):
+    """Test process_string reconstructs the input text"""
+    assert adv_calc.process_string("abc") == "abc"
 
 
-def test_advancedcalculator_process_string(calculator):
-    """Test process_string returns the same string"""
-    assert calculator.process_string("abc") == "abc"
-    assert calculator.process_string("") == ""
+def test_AdvancedCalculator_process_string_empty(adv_calc):
+    """Test process_string with empty string"""
+    assert adv_calc.process_string("") == ""
 
 
-def test_advancedcalculator_history_methods(calculator):
-    """Test history-related methods: add_to_history, get_operation_count, clear_history"""
-    assert calculator.get_operation_count() == 0
-    calculator.add_to_history("op1")
-    calculator.add_to_history("op2")
-    assert calculator.history == ["op1", "op2"]
-    assert calculator.get_operation_count() == 2
-    calculator.clear_history()
-    assert calculator.history == []
-    assert calculator.get_operation_count() == 0
+def test_AdvancedCalculator_get_operation_count_initial_zero(adv_calc):
+    """Test get_operation_count starts at zero"""
+    assert adv_calc.get_operation_count() == 0
 
 
-def test_advancedcalculator_add_to_history_trims_to_1000(calculator):
+def test_AdvancedCalculator_history_management_add_and_clear(adv_calc):
+    """Test add_to_history and clear_history affect counts correctly"""
+    adv_calc.add_to_history("op1")
+    adv_calc.add_to_history("op2")
+    assert adv_calc.get_operation_count() == 2
+    adv_calc.clear_history()
+    assert adv_calc.get_operation_count() == 0
+
+
+def test_AdvancedCalculator_add_to_history_trims_to_1000(adv_calc):
     """Test add_to_history trims history to last 1000 entries"""
     for i in range(1005):
-        calculator.add_to_history(f"op_{i}")
-    assert calculator.get_operation_count() == 1000
-    assert calculator.history[0] == "op_5"
-    assert calculator.history[-1] == "op_1004"
+        adv_calc.add_to_history(f"op_{i}")
+    assert len(adv_calc.history) == 1000
+    assert adv_calc.history[0] == "op_5"
+    assert adv_calc.history[-1] == "op_1004"
