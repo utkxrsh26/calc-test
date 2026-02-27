@@ -36,9 +36,15 @@ class ServiceClient:
 
     def fetch(self, endpoint: str) -> Optional[Dict]:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        resp = self._session.get(url, timeout=self.base_timeout)
-        resp.raise_for_status()
-        return resp.json()
+        for attempt in range(self.max_retries):
+            try:
+                resp = self._session.get(url, timeout=self.base_timeout)
+                resp.raise_for_status()
+                return resp.json()
+            except requests.ConnectionError:
+                if attempt == self.max_retries - 1:
+                    raise
+                time.sleep(1)
 
     def close(self):
         self._session.close()
