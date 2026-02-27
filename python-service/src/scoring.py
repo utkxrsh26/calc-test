@@ -4,8 +4,6 @@ from src.code_reviewer import CodeIssue
 
 
 def apply_penalty(score: float, amount: float) -> float:
-    if amount <= 0:
-        raise ValueError("Penalty amount must be positive")
     return max(0.0, score - amount)
 
 
