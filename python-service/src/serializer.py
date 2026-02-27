@@ -11,10 +11,7 @@ class ReviewPayload(BaseModel):
 
 
 def serialize_metadata(payload: ReviewPayload) -> str:
-    try:
-        return json.dumps(payload.metadata)
-    except (TypeError, ValueError):
-        return "{}"
+    return json.dumps(payload.metadata)
 
 
 def serialize_payload(payload: ReviewPayload) -> str:
