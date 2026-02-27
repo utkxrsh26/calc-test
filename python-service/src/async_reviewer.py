@@ -18,7 +18,7 @@ class AsyncReviewService:
         return result
 
     async def review_code(self, content: str, language: str) -> ReviewResult:
-        result = await asyncio.to_thread(self._perform_review, content, language)
+        result = await self._perform_review(content, language)
         return result
 
     async def review_batch(self, files: List[Dict[str, str]]) -> List[ReviewResult]:
