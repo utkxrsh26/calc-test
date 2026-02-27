@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 def get_service_url(config: Dict[str, str], service_name: str) -> Optional[str]:
     key = f"{service_name}_url"
     if key not in config:
-        raise KeyError(f"Missing required service URL for '{service_name}'")
+        logger.error("Missing service URL for '%s'", service_name)
+        return None
     return config[key]
 
 
