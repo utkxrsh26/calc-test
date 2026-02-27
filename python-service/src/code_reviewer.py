@@ -114,6 +114,16 @@ class CodeReviewer:
                 )
             )
 
+        if line != stripped and line.rstrip() != line:
+            issues.append(
+                CodeIssue(
+                    severity="info",
+                    line=line_num,
+                    message="Trailing whitespace detected",
+                    suggestion="Remove trailing whitespace",
+                )
+            )
+
         return issues
 
     def _count_complexity(self, line: str) -> int:
