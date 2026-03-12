@@ -1,0 +1,137 @@
+/* FeatureFlowSection.module.css */
+.section {
+  background: #000;
+  width: 100%;
+  padding: 6rem 1.5rem;
+  color: #fff;
+  overflow: hidden; /* To contain any glow effects */
+}
+
+.container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.heading {
+  font-size: 3rem;
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+}
+
+.subheading {
+  font-size: 1.125rem;
+  color: #9CA3AF;
+  margin-top: 1rem;
+  text-align: center;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.contentWrapper {
+  display: flex;
+  margin-top: 5rem;
+  gap: 4rem;
+  align-items: center;
+}
+
+.leftColumn, .rightColumn {
+  flex: 1;
+}
+
+.rightColumn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.featureList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bulletWrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.staticBullet {
+  width: 20px;
+  height: 20px;
+  background-color: #444;
+  border-radius: 50%;
+}
+
+.activeBullet {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: #027FF7;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.featureText {
+  font-size: 1.5rem;
+}
+
+.animationBox {
+  width: 400px;
+  height: 400px;
+  background: rgba(17, 17, 17, 0.9);
+  border: 1px solid rgba(2, 127, 247, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(2, 127, 247, 0.1), inset 0 0 15px rgba(2, 127, 247, 0.05);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+@media (max-width: 900px) {
+  .contentWrapper {
+    flex-direction: column;
+    gap: 4rem;
+  }
+  .leftColumn, .rightColumn {
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .heading {
+    font-size: 2.25rem;
+  }
+  .featureText {
+    font-size: 1.25rem;
+  }
+  .animationBox {
+    width: 100%;
+    height: 350px;
+  }
+}
