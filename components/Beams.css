@@ -1,0 +1,14 @@
+.beams-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  border-radius: 32px;
+  overflow: hidden;
+}
+
+.beams-container canvas {
+  border-radius: 32px;
+}

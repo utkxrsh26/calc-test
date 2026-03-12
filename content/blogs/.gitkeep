@@ -1,0 +1,14 @@
+# This directory contains blog markdown files
+# Add your .md files here with frontmatter like:
+#
+# ---
+# title: "Your Blog Post Title"
+# date: "2025-01-15"
+# author: "Author Name"
+# description: "A brief description of the post"
+# category: "News"
+# image: "/images/blog/your-image.jpg"
+# ---
+#
+# Your markdown content here...
+

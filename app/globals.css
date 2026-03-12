@@ -1,0 +1,783 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: oklch(0% 0 0);
+  --color-foreground: oklch(100% 0 0);
+  --color-card: oklch(0% 0 0);
+  --color-card-foreground: oklch(100% 0 0);
+  --color-primary: oklch(67% 0.18 252);
+  --color-primary-foreground: oklch(100% 0 0);
+  --color-secondary: oklch(15% 0 0);
+  --color-secondary-foreground: oklch(98% 0 0);
+  --color-muted: oklch(15% 0 0);
+  --color-muted-foreground: oklch(64% 0 0);
+  --color-accent: oklch(15% 0 0);
+  --color-accent-foreground: oklch(98% 0 0);
+  --color-border: oklch(20% 0 0);
+  --color-input: oklch(20% 0 0);
+  --color-ring: oklch(67% 0.18 252);
+
+  --radius: 0.5rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* Override styles to match screenshot requirements */
+body {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Remove blue glow overlays from styles.css */
+body::before,
+body::after {
+  display: none !important;
+}
+
+/* Warp Background Hero Section Customization */
+.hero-warp-section {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+/* Fix for buttons staying inside the box */
+.feature-visual {
+  overflow: hidden;
+  /* Ensure content stays within the card */
+}
+
+.feedback-container {
+  position: relative;
+  min-height: 200px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow: hidden;
+  /* Keep buttons contained */
+}
+
+.messy-buttons {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  overflow: hidden;
+  /* Prevent buttons from overflowing */
+}
+
+.messy-btn {
+  position: absolute;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  color: rgba(148, 163, 184, 0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  white-space: nowrap;
+  max-width: calc(100% - 2rem);
+  /* Ensure buttons don't exceed container */
+}
+
+.messy-btn-1 {
+  top: 25%;
+  /* Adjusted to stay within bounds */
+  left: 20%;
+  /* Adjusted to stay within bounds */
+  transform: rotate(-3deg);
+}
+
+.messy-btn-2 {
+  bottom: 45%;
+  /* Adjusted to stay within bounds */
+  left: 15%;
+  /* Adjusted to stay within bounds */
+  transform: rotate(-8deg);
+}
+
+.messy-btn-3 {
+  top: 35%;
+  /* Adjusted to stay within bounds */
+  right: 20%;
+  /* Adjusted to stay within bounds */
+  transform: rotate(5deg);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+/* Custom scrollbar - sleek minimal design */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
+
+/* Code block styles */
+pre {
+  @apply rounded-lg p-4 overflow-x-auto;
+}
+
+code {
+  @apply text-sm;
+}
+
+pre code {
+  @apply p-0;
+}
+
+/* Anchor links */
+.anchor {
+  @apply no-underline hover:underline;
+}
+
+/* Modern MDX content styles - CodeAnts inspired */
+.prose {
+  @apply max-w-none;
+  color: hsl(var(--foreground));
+  font-size: 15px;
+  line-height: 1.7;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+.prose h1 {
+  @apply text-3xl font-bold mb-5 mt-0 tracking-tight;
+  color: hsl(var(--foreground));
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.prose h2 {
+  @apply text-2xl font-semibold mb-3 mt-10 tracking-tight text-foreground;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  border-bottom: 1px solid hsl(var(--border) / 0.15);
+  padding-bottom: 0.5rem;
+}
+
+.prose h3 {
+  @apply text-xl font-semibold mb-2.5 mt-8 tracking-tight text-foreground;
+  line-height: 1.4;
+  font-weight: 600;
+  position: relative;
+  padding-left: 0.875rem;
+}
+
+.prose h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 2px;
+  height: 1.1em;
+  background: hsl(var(--primary));
+  border-radius: 1px;
+}
+
+.prose h4 {
+  @apply text-lg font-semibold mb-2 mt-6 tracking-tight text-foreground;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.prose p {
+  @apply mb-5;
+  line-height: 1.7;
+  color: hsl(var(--foreground) / 0.85);
+  font-size: 15px;
+}
+
+.prose ul,
+.prose ol {
+  @apply mb-5 ml-0;
+  padding-left: 1.25rem;
+  list-style-position: outside;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose li {
+  @apply mb-1.5;
+  line-height: 1.7;
+  color: hsl(var(--foreground) / 0.85);
+  padding-left: 0.375rem;
+}
+
+.prose ul li::marker {
+  color: hsl(var(--primary) / 0.8);
+  font-size: 0.875em;
+}
+
+.prose ol li::marker {
+  color: hsl(var(--primary) / 0.8);
+  font-weight: 600;
+}
+
+.prose li > p {
+  @apply mb-1.5 mt-0;
+}
+
+.prose a {
+  color: hsl(var(--primary));
+  text-decoration: none;
+  border-bottom: 1px solid hsl(var(--primary) / 0.25);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.prose a:hover {
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
+}
+
+.prose code {
+  background-color: hsl(var(--muted) / 0.4);
+  color: hsl(var(--foreground));
+  @apply px-1.5 py-0.5 rounded text-sm font-mono;
+  border: 1px solid hsl(var(--border) / 0.2);
+  font-size: 0.875em;
+}
+
+.prose pre {
+  background: #000000 !important;
+  border: 1px solid rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15) !important;
+  @apply rounded-md p-4 overflow-x-auto mb-5;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0 border-0;
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+.prose blockquote {
+  border-left: 2px solid hsl(var(--primary) / 0.3);
+  @apply pl-5 my-5;
+  color: hsl(var(--foreground) / 0.75);
+  font-style: italic;
+  background: hsl(var(--muted) / 0.15);
+  padding: 0.875rem 1.25rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.prose table {
+  @apply w-full border-collapse my-5;
+  border: 1px solid hsl(var(--border) / 0.15);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.prose th,
+.prose td {
+  @apply border px-3 py-2.5 text-left;
+  border-color: hsl(var(--border) / 0.15);
+}
+
+.prose th {
+  @apply font-semibold text-foreground;
+  background: hsl(var(--muted) / 0.25);
+  border-bottom: 1px solid hsl(var(--border) / 0.15);
+}
+
+.prose td {
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.prose hr {
+  @apply my-6;
+  border: none;
+  border-top: 1px solid hsl(var(--border) / 0.15);
+  height: 0;
+}
+
+.prose strong {
+  @apply font-semibold;
+  color: hsl(var(--foreground));
+}
+
+.prose em {
+  font-style: italic;
+  color: hsl(var(--foreground) / 0.85);
+}
+
+/* Enhanced visual elements */
+.prose img {
+  @apply rounded-md border my-5;
+  border-color: hsl(var(--border) / 0.15);
+  max-width: 100%;
+  height: auto;
+}
+
+.prose figure {
+  @apply my-5;
+}
+
+.prose figcaption {
+  @apply text-xs text-muted-foreground mt-2 text-center;
+}
+
+/* Enhanced focus states */
+.prose a:focus-visible,
+.prose button:focus-visible,
+.prose code:focus-visible {
+  @apply outline-2 outline-primary outline-offset-2 rounded;
+}
+
+/* Modern Documentation Content Styles */
+.documentation-content {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+}
+
+.documentation-content .prose {
+  color: hsl(var(--foreground));
+}
+
+.documentation-content .prose h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+  margin-top: 0;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.documentation-content .prose h2 {
+  font-size: 1.625rem;
+  font-weight: 600;
+  margin-top: 2.5rem;
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.15);
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+.documentation-content .prose h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.625rem;
+  line-height: 1.4;
+}
+
+.documentation-content .prose p {
+  font-size: 15px;
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.documentation-content .prose ul,
+.documentation-content .prose ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.25rem;
+}
+
+.documentation-content .prose li {
+  margin-bottom: 0.375rem;
+  line-height: 1.7;
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.documentation-content .prose code {
+  font-size: 0.875em;
+  padding: 0.125rem 0.375rem;
+}
+
+.documentation-content .prose pre {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  font-size: 13px;
+}
+
+.documentation-content .prose blockquote {
+  margin: 1.25rem 0;
+  padding: 0.875rem 1.25rem;
+}
+
+.documentation-content .prose hr {
+  margin: 1.5rem 0;
+  border-color: hsl(var(--border) / 0.15);
+}
+
+.documentation-content .prose table {
+  margin: 1.25rem 0;
+  font-size: 14px;
+}
+
+.documentation-content .prose img {
+  margin: 1.5rem 0;
+  border-radius: 0.375rem;
+}
+
+/* Documentation index page styles */
+.documentation-index {
+  width: 100%;
+}
+
+.documentation-index h1 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+}
+
+.documentation-index p {
+  margin-top: 0;
+  margin-bottom: 0;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+}
+
+/* Modern Sidebar Styles - CodeAnts inspired */
+.sidebar-modern {
+  background: hsl(var(--background));
+}
+
+.sidebar-modern::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  background: hsl(var(--border) / 0.3);
+  pointer-events: none;
+}
+
+.sidebar-section-modern {
+  position: relative;
+}
+
+.sidebar-section-modern::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 0;
+  background: hsl(var(--primary));
+  border-radius: 0 1px 1px 0;
+  transition: height 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-section-modern[class*="bg-primary"]::before {
+  height: 70%;
+}
+
+.sidebar-link-modern {
+  position: relative;
+  font-size: 12px;
+}
+
+.sidebar-link-modern::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 0;
+  background: hsl(var(--primary));
+  border-radius: 1px;
+  transition: height 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-link-modern[class*="bg-primary"]::before,
+.sidebar-link-modern:hover::before {
+  height: 60%;
+}
+
+.sidebar-children {
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Modern Documentation Card Styles - CodeAnts inspired */
+.doc-card-modern {
+  position: relative;
+  overflow: hidden;
+  will-change: transform;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.doc-card-modern:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px hsl(var(--primary) / 0.1);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Linear-inspired smooth transitions */
+* {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Fade in animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Documentation card styles */
+.documentation-card {
+  display: block;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border) / 0.5);
+  background: hsl(var(--card) / 0.5);
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.documentation-card:hover {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.documentation-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.documentation-card:hover h3 {
+  color: hsl(var(--primary));
+}
+
+.documentation-card p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  font-family: ui-monospace, monospace;
+}
+
+/* Professional documentation prose styles */
+.prose-docs {
+  color: hsl(var(--foreground));
+}
+
+.prose-docs > *:first-child {
+  margin-top: 0 !important;
+}
+
+.prose-docs > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* MDX content wrapper */
+.mdx-content {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.mdx-content .prose {
+  color: hsl(var(--foreground));
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ensure proper spacing in documentation */
+.documentation-content .prose {
+  padding: 0;
+  margin: 0;
+}
+
+.documentation-content .prose h1 {
+  margin-top: 0 !important;
+  margin-bottom: 1.5rem !important;
+  padding-top: 0;
+  font-size: 2.5rem;
+  line-height: 1.2;
+}
+
+.documentation-content .prose h2 {
+  margin-top: 2.5rem !important;
+  margin-bottom: 1rem !important;
+  padding-top: 0;
+  font-size: 1.875rem;
+  line-height: 1.3;
+}
+
+.documentation-content .prose h3 {
+  margin-top: 2rem !important;
+  margin-bottom: 0.75rem !important;
+  padding-top: 0;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+
+.documentation-content .prose p {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  line-height: 1.75;
+}
+
+/* Fix image alignment in documentation */
+.documentation-content .prose img {
+  max-width: 100%;
+  height: auto;
+  margin: 2rem auto;
+  display: block;
+}
+
+/* Code block improvements */
+.documentation-content .prose pre {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+}
+
+.documentation-content .prose code {
+  word-break: break-word;
+  font-size: 0.875rem;
+}
+
+/* Table improvements */
+.documentation-content .prose table {
+  margin: 0;
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* List improvements */
+.documentation-content .prose ul,
+.documentation-content .prose ol {
+  margin: 1.25rem 0;
+  padding-left: 1.75rem;
+}
+
+.documentation-content .prose li {
+  margin: 0.5rem 0;
+  line-height: 1.75;
+}
+
+/* Blockquote improvements */
+.documentation-content .prose blockquote {
+  margin: 1.5rem 0;
+  padding: 1rem 1.5rem;
+}
+
+/* Link improvements */
+.documentation-content .prose a {
+  word-break: break-word;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Ensure proper alignment */
+.documentation-content .prose > *:first-child {
+  margin-top: 0 !important;
+}
+
+.documentation-content .prose > *:last-child {
+  margin-bottom: 0 !important;
+}
